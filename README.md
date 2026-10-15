@@ -14,17 +14,17 @@ interactive map of Iraq.
 
 ## What it does (3 core steps)
 
-| Step                         | File                     | Description                                                                                                                                                                                                                                                      |
-| ---------------------------- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **1. Data Collection**       | `src/collect_reviews.py` | Gathers Google Maps reviews (AR/EN) via the **Google Places API**, or a built-in **bilingual mock corpus** offline. Stores clean structured data (JSON + CSV).                                                                                                   |
-| **2. AI Sentiment Analysis** | `src/analyze_reviews.py` | Classifies each review's **sentiment** (Positive / Neutral / Negative) and **tags issues** (Cleanliness, Parking, Safety, Tour Guides, Pricing, Services, Crowding, Accessibility). Supports **Gemini / OpenAI** LLM or a built-in offline bilingual classifier. |
-| **3. Interactive Dashboard** | `src/dashboard.py`       | A Streamlit app centered on an **interactive map of Iraq** with clickable site markers, satisfaction gauges, priority-ranked complaint bars, a filterable bilingual review feed, and an **automated Actionable Insights** panel.                                 |
+**1. Data Collection** (`src/collect_reviews.py`): Gathers Google Maps reviews (AR/EN) via the **Google Places API**, or a built-in **bilingual mock corpus** offline. Stores clean structured data (JSON + CSV).
+
+**2. AI Sentiment Analysis** (`src/analyze_reviews.py`): Classifies each review's **sentiment** (Positive / Neutral / Negative) and **tags issues** (Cleanliness, Parking, Safety, Tour Guides, Pricing, Services, Crowding, Accessibility). Supports **Gemini / OpenAI** LLM or a built-in offline bilingual classifier.
+
+**3. Interactive Dashboard** (`src/dashboard.py`): A Streamlit app centered on an **interactive map of Iraq** with clickable site markers, satisfaction gauges, priority-ranked complaint bars, a filterable bilingual review feed, and an **automated Actionable Insights** panel.
 
 ---
 
 ## Project structure
 
-```
+```txt
 culture_hackathon/
 ├── run_pipeline.py            # run this file to start
 ├── requirements.txt
@@ -175,33 +175,3 @@ required by the platform spec plus useful metadata:
 Add or edit categories and their bilingual keywords in `src/config.py`
 (`ISSUE_CATEGORIES`); the classifier, dashboard, and insights update
 automatically.
-
----
-
-## Deployment
-
-### Streamlit Community Cloud
-
-1. Push this repo to GitHub.
-2. Go to [share.streamlit.io](https://share.streamlit.io) -> **New app**.
-3. Set **Main file path** = `src/dashboard.py`.
-4. Add any secrets (`GOOGLE_PLACES_API_KEY`, etc.) under **Settings -> Secrets**.
-5. Deploy. (Commit the `data/reviews_analyzed.json` if you want live demo data
-   to load without re-running the pipeline.)
-
-### Docker
-
-```dockerfile
-FROM python:3.10-slim
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-COPY . .
-EXPOSE 8501
-CMD ["streamlit", "run", "src/dashboard.py", "--server.port=8501", "--server.address=0.0.0.0"]
-```
-
-### Other hosts
-
-Works on Render, Railway, Heroku, Azure, or any host that can run a Python web
-process. Use `streamlit run src/dashboard.py --server.port=$PORT`.
