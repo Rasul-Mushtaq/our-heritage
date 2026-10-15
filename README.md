@@ -159,7 +159,7 @@ required by the platform spec plus useful metadata:
   **immediate intervention**, each with a severity level and priority score.
 - **Bilingual UI**: full Arabic (RTL-aware) and English toggle.
 
-### Issue taxonomy
+### Issue Classification
 
 | Key             | English          | العربية          |
 | --------------- | ---------------- | ---------------- |
