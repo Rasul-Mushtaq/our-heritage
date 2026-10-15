@@ -1,0 +1,11 @@
+# Core dashboard & data stack (pinned to versions verified in this prototype)
+streamlit>=1.28.0
+pandas>=1.5.0
+plotly>=5.15.0
+requests>=2.31.0
+
+# --- Optional: enable LLM-powered sentiment & issue classification ---
+# The app runs fully OFFLINE without these; install an SDK only if you want
+# to use the LLM engine instead of the built-in bilingual classifier.
+# google-generativeai>=0.3.0   # for Gemini (set GEMINI_API_KEY)
+# openai>=1.0.0                # for OpenAI  (set OPENAI_API_KEY)
