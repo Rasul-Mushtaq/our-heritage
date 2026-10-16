@@ -1,14 +1,9 @@
 """
-End-to-end pipeline runner for "تراثنا بعيون زواره".
-
-Runs the full pipeline in order:
-    STEP 1  Collect reviews (Google Places API or offline mock corpus)
-    STEP 2  Analyze sentiment + classify issues (LLM or offline bilingual engine)
-    STEP 3  Launch the interactive Streamlit dashboard
+Pipeline runner: collect reviews, analyze them, then launch the dashboard.
 
 Usage:
-    python run_pipeline.py            # run STEP 1 + STEP 2, then start dashboard
-    python run_pipeline.py --no-dash  # run STEP 1 + STEP 2 only
+    python run_pipeline.py            # run all steps, then start dashboard
+    python run_pipeline.py --no-dash  # run collect + analyze only
     python run_pipeline.py --dash-only  # skip pipeline, just start dashboard
 """
 from __future__ import annotations
@@ -49,7 +44,7 @@ def run_pipeline(per_site: int, force_mock: bool):
 
 def run_dashboard():
     print("\n" + "=" * 70)
-    print("STEP 3: launching interactive dashboard...")
+    print("Launching dashboard...")
     print("=" * 70)
     app = os.path.join(SRC, "dashboard.py")
     subprocess.call([sys.executable, "-m", "streamlit", "run", app])

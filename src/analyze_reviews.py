@@ -1,21 +1,10 @@
 """
-STEP 2 - AI Sentiment Analysis & Issue Classification Engine.
+Sentiment analysis and issue classification for visitor reviews.
 
-Processes raw review texts (Arabic + English) to:
-  1. Classify satisfaction/sentiment  -> positive | neutral | negative
-  2. Tag specific complaint issues    -> cleanliness, parking, safety,
-                                         tour_guides, pricing, services,
-                                         crowding, accessibility (multi-label)
-
-Two engines are supported:
-  * LLM engine   (Gemini / OpenAI) - used when an API key is available.
-                  Returns strict JSON: {sentiment, extracted_issues}.
-  * Offline engine- a deterministic, bilingual keyword/scoring classifier
-                  used as fallback so the prototype always runs.
-
-The final output enriches every review and is saved to
-data/reviews_analyzed.json with the required schema:
-  site_name, review_text, rating, language, sentiment, extracted_issues
+Classifies each review as positive / neutral / negative and tags issues
+(cleanliness, parking, safety, etc.). Uses an LLM (Gemini/OpenAI) when an
+API key is available, otherwise falls back to a keyword-based classifier.
+Output: data/reviews_analyzed.json
 """
 from __future__ import annotations
 
@@ -30,9 +19,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import config as C  # noqa: E402
 
 
-# Text normalization helpers
 def normalize_arabic(text: str) -> str:
-    """Light Arabic normalization to improve keyword matching."""
+    """Normalize Arabic text for better keyword matching."""
     repl = {
         "أ": "ا", "إ": "ا", "آ": "ا", "ٱ": "ا",
         "ى": "ي", "ة": "ه",
@@ -51,7 +39,6 @@ def _prep(text: str) -> str:
 
 
 
-# Offline rule-based engine (bilingual, deterministic)
 def detect_issues_offline(text: str) -> list[str]:
     """Return the list of issue keys detected in the review text."""
     t = _prep(text)
@@ -90,15 +77,15 @@ def detect_sentiment_offline(text: str, rating: int) -> str:
     return base
 
 
-# LLM engine (Gemini / OpenAI) - used when API keys are available
 ISSUE_KEYS_STR = ", ".join(C.ISSUE_KEYS)
 
 
 def _build_prompt(text: str, language: str) -> str:
     return (
-        "You are an expert tourism analyst for Iraqi heritage sites.\n"
-        f"Analyze the following visitor review (language: {language}).\n\n"
-        "Return ONLY a valid JSON object (no markdown, no extra text) with:\n"
+        f"Classify the following visitor review (language: {language}).\n"
+        'Return only valid JSON with "sentiment" (positive/neutral/negative) '
+        'and "extracted_issues" (list of issue keys). Issue keys: '
+        f"{ISSUE_KEYS_STR}.\n\n"
         '  "sentiment": one of "positive", "neutral", "negative"\n'
         '  "extracted_issues": an array of applicable issue tags from this exact set: '
         f"[{ISSUE_KEYS_STR}] (empty array if none).\n\n"
@@ -129,8 +116,12 @@ def classify_with_gemini(text: str, language: str) -> dict | None:
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
     body = {"contents": [{"parts": [{"text": _build_prompt(text, language)}]}],
             "generationConfig": {"temperature": 0.1}}
-    resp = requests.post(url, params={"key": key}, json=body, timeout=40)
-    resp.raise_for_status()
+    try:
+        resp = requests.post(url, params={"key": key}, json=body, timeout=40)
+        resp.raise_for_status()
+    except requests.RequestException as exc:
+        print(f"    ! Gemini request failed: {exc}")
+        return None
     data = resp.json()
     txt = data["candidates"][0]["content"]["parts"][0]["text"]
     return _parse_llm_json(txt)
@@ -144,8 +135,12 @@ def classify_with_openai(text: str, language: str) -> dict | None:
     headers = {"Authorization": f"Bearer {key}"}
     body = {"model": model, "temperature": 0.1,
             "messages": [{"role": "user", "content": _build_prompt(text, language)}]}
-    resp = requests.post(url, headers=headers, json=body, timeout=40)
-    resp.raise_for_status()
+    try:
+        resp = requests.post(url, headers=headers, json=body, timeout=40)
+        resp.raise_for_status()
+    except requests.RequestException as exc:
+        print(f"    ! OpenAI request failed: {exc}")
+        return None
     data = resp.json()
     txt = data["choices"][0]["message"]["content"]
     return _parse_llm_json(txt)
@@ -165,29 +160,17 @@ def pick_llm_provider() -> str | None:
 
 
 
-# Unified classification
 def analyze_review(review: dict, provider: str | None = None) -> dict:
-    """Classify a single review, returning the full enriched record.
-
-    Output schema (as required by the platform spec):
-      site_name, review_text, rating, language, sentiment, extracted_issues
-    """
     text = review["text"]
     rating = int(review.get("rating", 0) or 0)
     language = review.get("language") or ("ar" if _has_arabic(text) else "en")
 
-    result = None
     provider = provider or pick_llm_provider()
-    if provider == "gemini":
-        try:
-            result = classify_with_gemini(text, language)
-        except Exception as exc:
-            print(f"    ! Gemini failed: {exc}; using offline engine.")
-    elif provider == "openai":
-        try:
-            result = classify_with_openai(text, language)
-        except Exception as exc:
-            print(f"    ! OpenAI failed: {exc}; using offline engine.")
+    result = None
+    if provider == "gemini" and C.GEMINI_API_KEY:
+        result = classify_with_gemini(text, language)
+    elif provider == "openai" and C.OPENAI_API_KEY:
+        result = classify_with_openai(text, language)
 
     if result is None:
         result = {
@@ -223,8 +206,6 @@ def analyze_review(review: dict, provider: str | None = None) -> dict:
 def _has_arabic(text: str) -> bool:
     return any("\u0600" <= ch <= "\u06ff" for ch in text)
 
-    return base
-
 
 
 # Batch arrangement
@@ -236,14 +217,13 @@ def load_raw_reviews(path: str | None = None) -> list[dict]:
 
 def run(raw_path: str | None = None, out_path: str | None = None,
         limit: int | None = None) -> list[dict]:
-    """Analyze all raw reviews and persist the enriched output."""
     C.force_utf8_output()
     out_path = out_path or C.ANALYZED_FILE
     provider = pick_llm_provider()
     print("=" * 70)
-    print("STEP 2: AI Sentiment & Issue Classification")
+    print("Step 2: Review Analysis")
     print("=" * 70)
-    print(f"[engine] {'LLM: ' + provider if provider else 'Offline bilingual classifier'}")
+    print(f"[engine] {provider if provider else 'offline'}")
 
     reviews = load_raw_reviews(raw_path)
     if limit:
@@ -258,7 +238,6 @@ def run(raw_path: str | None = None, out_path: str | None = None,
     with io.open(out_path, "w", encoding="utf-8") as fh:
         json.dump(analyzed, fh, ensure_ascii=False, indent=2)
 
-    # quick summary
     sent_counts: dict[str, int] = {}
     issue_counts: dict[str, int] = {}
     for a in analyzed:

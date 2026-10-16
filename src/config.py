@@ -1,8 +1,5 @@
 """
-Shared configuration for "تراثنا بعيون زواره" (Our Heritage).
-
-Central place for paths, bilingual issue categories, sentiment labels and
-API settings so every pipeline stage and the dashboard stay in sync.
+Shared configuration: file paths, issue categories, sentiment labels, API settings.
 """
 from __future__ import annotations
 
@@ -22,25 +19,24 @@ ANALYZED_FILE = os.path.join(DATA_DIR, "reviews_analyzed.json")
 
 # Application identity (bilingual)
 APP_TITLE_AR = "تراثنا بعيون زواره"
-APP_SUBTITLE_AR = "منصة ذكية لتحليل آراء الزوار وتحسين إدارة المواقع الأثرية"
 APP_TITLE_EN = "Our Heritage"
-APP_SUBTITLE_EN = "AI-powered analytics for Iraqi historical & archaeological sites"
+APP_SUBTITLE_AR = "تحليل آراء الزوار وإدارة المواقع الأثرية"
+APP_SUBTITLE_EN = "Visitor review analytics for Iraqi heritage sites"
 
 # API / LLM settings (read from environment; optional)
 GOOGLE_PLACES_API_KEY = os.environ.get("GOOGLE_PLACES_API_KEY", "")
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 
-# Which LLM provider to use for classification: "gemini", "openai" or "offline"
-LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "auto")  # auto -> pick available
+# LLM provider: "gemini", "openai", or "offline" ("auto" picks an available key)
+LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "auto")
 
-# Max reviews Google Place Details returns per request (hard limit = 5)
+# Review sort order for Google Place Details
 GOOGLE_REVIEW_SORT = "most_relevant"
 
 
 def force_utf8_output() -> None:
-    """Make stdout/stderr UTF-8 so Arabic prints safely on Windows consoles
-    (whose default code page is often cp1252). Safe no-op elsewhere."""
+    """Ensure stdout/stderr use UTF-8 so Arabic prints correctly on Windows."""
     import sys
     for stream in (sys.stdout, sys.stderr):
         reconfigure = getattr(stream, "reconfigure", None)
@@ -51,9 +47,7 @@ def force_utf8_output() -> None:
                 pass
 
 
-# Issue taxonomy (bilingual). Each issue has English + Arabic display names
-# plus keyword lists (Arabic + English) used by the offline rule-based
-# classifier. Keywords are matched case-insensitively on review text.
+# Issue categories with bilingual labels and keywords for the offline classifier.
 ISSUE_CATEGORIES = {
     "cleanliness": {
         "en": "Cleanliness",
@@ -156,17 +150,14 @@ ISSUE_CATEGORIES = {
     },
 }
 
-# Convenience list of issue keys
 ISSUE_KEYS = list(ISSUE_CATEGORIES.keys())
 
-# Sentiment labels (bilingual)
 SENTIMENT_LABELS = {
     "positive": {"en": "Positive", "ar": "إيجابي", "emoji": "😊", "color": "#1b9e4b"},
     "neutral": {"en": "Neutral", "ar": "محايد", "emoji": "😐", "color": "#f0a30a"},
     "negative": {"en": "Negative", "ar": "سلبي", "emoji": "😞", "color": "#d93025"},
 }
 
-# Keyword lexicons for offline sentiment fallback
 POSITIVE_KEYWORDS_EN = [
     "amazing", "beautiful", "great", "wonderful", "excellent", "fantastic",
     "love", "loved", "stunning", "breathtaking", "must", "worth", "recommend",

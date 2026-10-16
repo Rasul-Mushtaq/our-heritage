@@ -1,9 +1,5 @@
 """
-Insights & recommendations engine (STEP 3 helper).
-
-Given analyzed reviews, computes per-site metrics and generates automated,
-bilingual, actionable recommendations for site managers - highlighting the
-most critical issues requiring immediate intervention.
+Metrics and recommendations for heritage sites based on analyzed reviews.
 """
 from __future__ import annotations
 
@@ -13,7 +9,7 @@ import config as C
 
 
 def satisfaction_pct(reviews: list[dict]) -> float:
-    """Overall satisfaction = share of positive reviews (%)."""
+    """Share of positive reviews (%)."""
     if not reviews:
         return 0.0
     pos = sum(1 for r in reviews if r["sentiment"] == "positive")
@@ -32,7 +28,7 @@ def sentiment_counts(reviews: list[dict]) -> dict:
 
 
 def issue_counts(reviews: list[dict]) -> dict:
-    """Count how many reviews mention each issue (issue_key -> count)."""
+    """Count reviews mentioning each issue."""
     c = Counter()
     for r in reviews:
         for k in r.get("extracted_issues", []):
@@ -58,8 +54,7 @@ def site_metrics(reviews: list[dict], site_id: str) -> dict:
     }
 
 
-# Priority ranking & automated recommendations
-# Recommended corrective action per issue (bilingual), used by managers.
+# Corrective action recommendations per issue (bilingual).
 ISSUE_RECOMMENDATIONS = {
     "cleanliness": {
         "en": "Increase cleaning frequency, add more bins and schedule daily waste collection.",
@@ -116,11 +111,7 @@ SEVERITY_STYLE = {
 
 
 def prioritized_issues(reviews: list[dict], site_id: str) -> list[dict]:
-    """Return issues for a site ranked by a priority score.
-
-    Priority score blends how often an issue is mentioned with how strongly it
-    appears in negative/neutral reviews (real pain points), normalized to 0-100.
-    """
+    """Issues for a site ranked by priority score (mention frequency + negativity)."""
     rs = [r for r in reviews if r["site_id"] == site_id]
     total = len(rs) or 1
     raw = issue_counts(rs)
@@ -155,6 +146,6 @@ def prioritized_issues(reviews: list[dict], site_id: str) -> list[dict]:
 
 
 def generate_insights(reviews: list[dict], site_id: str, top_n: int = 3) -> list[dict]:
-    """Top actionable recommendations for a site (most critical first)."""
+    """Top N recommendations for a site (most critical first)."""
     return prioritized_issues(reviews, site_id)[:top_n]
 

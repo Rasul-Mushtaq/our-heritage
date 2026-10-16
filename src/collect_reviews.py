@@ -1,32 +1,7 @@
 """
-STEP 1 - Data Collection & Ingestion Pipeline.
-
-Gathers Google Maps reviews (Arabic + English) for major Iraqi historical and
-archaeological sites, then stores them in a clean structured format.
-
-Data sources (in priority order):
-  1. Google Places API  - if GOOGLE_PLACES_API_KEY is set (real reviews).
-  2. Local mock corpus  - otherwise a rich bilingual sample dataset is used
-                          so the whole prototype runs end-to-end offline.
-
-Both paths produce the SAME normalized schema, saved to:
-  data/reviews_raw.json  (primary, structured)
-  data/reviews_raw.csv   (convenience export)
-
-Normalized review schema:
-  {
-    "review_id":   str,   unique id (site + index)
-    "site_id":     str,   e.g. "babylon"
-    "site_name_en":str,
-    "site_name_ar":str,
-    "author":      str,
-    "rating":      int,   1..5
-    "language":    "ar" | "en",
-    "text":        str,   the review body
-    "timestamp":   str,   ISO 8601 date (YYYY-MM-DD)
-    "source":      "google_places" | "mock",
-    "lat": float, "lon": float,
-  }
+Data collection: fetches Google Maps reviews via the Places API, or generates
+a bilingual mock dataset when no API key is configured. Outputs to
+data/reviews_raw.json and data/reviews_raw.csv.
 """
 from __future__ import annotations
 
@@ -81,18 +56,20 @@ def _norm_google_review(raw: dict, site: dict, idx: int) -> dict:
 
 # Google Places API integration (live data)
 def google_find_place(query: str, api_key: str) -> str:
-    """Resolve a text query to a Google place_id (Find Place)."""
     url = "https://maps.googleapis.com/maps/api/place/findplacefromtext/json"
     params = {"input": query, "inputtype": "textquery", "fields": "place_id", "key": api_key}
-    resp = requests.get(url, params=params, timeout=20)
-    resp.raise_for_status()
+    try:
+        resp = requests.get(url, params=params, timeout=20)
+        resp.raise_for_status()
+    except requests.RequestException as exc:
+        print(f"  ! Find Place request failed for '{query}': {exc}")
+        return ""
     data = resp.json()
     cands = data.get("candidates", [])
     return cands[0]["place_id"] if cands else ""
 
 
 def google_place_details(place_id: str, api_key: str) -> dict:
-    """Fetch place details incl. up to 5 reviews from Place Details."""
     url = "https://maps.googleapis.com/maps/api/place/details/json"
     params = {
         "place_id": place_id,
@@ -100,8 +77,12 @@ def google_place_details(place_id: str, api_key: str) -> dict:
         "reviews_sort": C.GOOGLE_REVIEW_SORT,
         "key": api_key,
     }
-    resp = requests.get(url, params=params, timeout=20)
-    resp.raise_for_status()
+    try:
+        resp = requests.get(url, params=params, timeout=20)
+        resp.raise_for_status()
+    except requests.RequestException as exc:
+        print(f"  ! Place Details request failed for {place_id}: {exc}")
+        return {}
     return resp.json().get("result", {})
 
 
@@ -152,26 +133,27 @@ def load_reviews(path: str | None = None) -> list[dict]:
         return json.load(fh)
 
 
-# Orchestration
 def run(per_site: int = 14, force_mock: bool = False, seed: int = 42) -> list[dict]:
-    """Main entry: collect reviews (Google if available, else mock) and save."""
     C.force_utf8_output()
     sites = load_sites()
     print("=" * 70)
-    print("STEP 1: Data Collection & Ingestion")
+    print("Step 1: Data Collection")
     print("=" * 70)
 
     reviews: list[dict] = []
     api_key = C.GOOGLE_PLACES_API_KEY
     if api_key and not force_mock:
+        print("[source] Google Places API")
         try:
-            print("[source] Google Places API")
             reviews = collect_from_google(sites, api_key)
-        except Exception as exc:  # pragma: no cover - network dependent
-            print(f"  ! Google Places failed ({exc}); falling back to mock corpus.")
+        except requests.RequestException as exc:
+            print(f"  ! Google Places network error ({exc}); using mock corpus.")
+            reviews = []
+        except Exception as exc:
+            print(f"  ! Google Places failed ({exc}); using mock corpus.")
             reviews = []
     else:
-        print("[source] Offline bilingual mock corpus (no API key provided).")
+        print("[source] Offline mock corpus (no API key provided).")
 
     if not reviews:
         from mock_data import generate_mock_reviews
@@ -179,7 +161,7 @@ def run(per_site: int = 14, force_mock: bool = False, seed: int = 42) -> list[di
         reviews = generate_mock_reviews(sites, per_site=per_site, seed=seed)
 
     save_reviews(reviews)
-    langs = {}
+    langs: dict[str, int] = {}
     for r in reviews:
         langs[r["language"]] = langs.get(r["language"], 0) + 1
     print(f"\n✓ Collected {len(reviews)} reviews across {len(sites)} sites.")

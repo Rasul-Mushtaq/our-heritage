@@ -1,10 +1,6 @@
 """
-STEP 3 - Interactive Dashboard & Map of Iraq.
-
-A Streamlit web app centered on an interactive map of Iraq with clickable
-markers for each heritage site. Shows overall satisfaction gauges, per-site
-issue breakdowns, a filterable bilingual review feed, and an automated
-"Actionable Insights" panel for site managers.
+Streamlit dashboard: map of Iraq with site metrics, issue breakdowns, and a
+filterable review feed.
 
 Run:
     streamlit run src/dashboard.py
@@ -26,7 +22,6 @@ import streamlit as st
 import config as C
 import insights as I
 
-# Page config (must be first Streamlit command)
 st.set_page_config(
     page_title=f"{C.APP_TITLE_AR} | {C.APP_TITLE_EN}",
     page_icon="🇮🇶",
@@ -34,13 +29,13 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# Custom CSS for an RTL-friendly, polished bilingual UI
 st.markdown(
     """
     <style>
       .main-title { font-size: 2.4rem; font-weight: 800; color:#0b3d2e;
-        background: linear-gradient(90deg,#0b3d2e,#1b9e4b); -webkit-background-clip:text;
-        -webkit-text-fill-color: transparent; margin-bottom:0; }
+        background: linear-gradient(90deg,#0b3d2e,#1b9e4b);
+        -webkit-background-clip:text; -webkit-text-fill-color: transparent;
+        margin-bottom:0; }
       .subtitle { color:#4a5568; font-size:1.05rem; margin-top:.25rem; }
       .metric-card { background:#fff; border:1px solid #e6e6e6; border-radius:14px;
         padding:16px 18px; box-shadow:0 2px 10px rgba(0,0,0,0.05); }
@@ -59,12 +54,8 @@ st.markdown(
 )
 
 
-
-# Data loading (auto-generate if the pipeline hasn't been run yet)
 @st.cache_data(show_spinner=False)
 def load_all():
-    """Load sites + analyzed reviews. If analyzed data is missing, run the
-    full pipeline (collect + analyze) so the dashboard always has data."""
     with io.open(C.SITES_FILE, encoding="utf-8") as fh:
         sites = json.load(fh)["sites"]
 
@@ -88,10 +79,9 @@ def issue_label(key, lang="en"):
 
 
 def sentiment_badge(sentiment, lang="en"):
-    s = C.SENTIMENT_LABELS[sentiment]
+    return C.SENTIMENT_LABELS[sentiment]
 
 
-# Chart builders
 def make_iraq_map(sites, reviews):
     """Interactive map of Iraq with clickable, color-coded site markers."""
     rows = []
@@ -231,7 +221,7 @@ def _top_issue_label(scope, lang):
 
 # Main app
 def main():
-    lang = st.session_state.get("lang", "ar")  # default Arabic UI
+    lang = st.session_state.get("lang", "ar")
 
     # Header
     col_l, col_r = st.columns([4, 1])
@@ -366,14 +356,14 @@ def main():
 
     # Actionable insights panel
     st.markdown("---")
-    st.markdown(f"### {'# توصيات عملية لإدارة الموقع' if lang=='ar' else '# Actionable Insights for Site Managers'}")
-    st.caption("توصيات آلية تُبرز المشكلات الأكثر إلحاحاً التي تحتاج تدخلاً فورياً / "
-               "Automated recommendations highlighting the most critical issues requiring immediate intervention.")
+    st.markdown(f"### {'توصيات للإدارة' if lang=='ar' else 'Site Recommendations'}")
+    st.caption("توصيات لمعالجة المشكلات الأكثر تكراراً في المراجعات / "
+               "Recommendations based on the most common review issues.")
 
     top_insights = I.generate_insights(reviews, detail_id, top_n=3)
     if not top_insights:
-        st.success("لا توجد مشكلات حرجة - أداء الموقع جيد!" if lang == "ar"
-                   else "No critical issues detected - this site is performing well!")
+        st.success("لا توجد مشكلات مسجلة لهذا الموقع." if lang == "ar"
+                   else "No issues detected for this site.")
     else:
         for rank, it in enumerate(top_insights, 1):
             sev = I.SEVERITY_STYLE[it["severity"]]
@@ -398,7 +388,7 @@ def main():
     st.markdown("---")
     st.markdown(f"### {'آخر مراجعات الزوار' if lang=='ar' else 'Recent Visitor Reviews'}")
     st.caption("مراجعات حديثة بالعربية والإنجليزية مع وسوم المشاعر / "
-               "Recent Arabic & English comments with AI-assigned sentiment tags.")
+               "Recent Arabic & English comments with sentiment tags.")
 
     if not feed:
         st.warning("لا توجد مراجعات مطابقة للفلاتر." if lang == "ar"
